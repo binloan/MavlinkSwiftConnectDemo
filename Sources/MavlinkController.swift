@@ -34,6 +34,8 @@ class MavlinkController: NSObject {
     @IBOutlet weak var telemetryRadioButton: NSButton!
     @IBOutlet var receivedMessageTextView: NSTextView!
     @IBOutlet weak var clearTextViewButton: NSButton!
+    
+    var lastUpdate = Date()
    
     // MARK: Initializers
     
@@ -84,7 +86,7 @@ class MavlinkController: NSObject {
             return
         }
         
-        guard let data = "mavlink start -d /dev/ttyACM0 -s ATTITUDE_QUATERNION -r 200\n".data(using: String.Encoding.utf32LittleEndian) else {
+        guard let data = "mavlink start -d /dev/ttyACM0\n".data(using: String.Encoding.utf32LittleEndian) else {
             print("Cannot create mavlink USB start command")
             return
         }
@@ -167,9 +169,11 @@ extension MavlinkController: ORSSerialPortDelegate {
             let channel = UInt8(MAVLINK_COMM_1.rawValue)
             if mavlink_parse_char(channel, byte, &message, &status) != 0 {
                 if message.msgid == 30{
-                    receivedMessageTextView.textStorage?.mutableString.append(message.description)
+                    let duration = Date().timeIntervalSince(lastUpdate)
+                    receivedMessageTextView.textStorage?.mutableString.append(message.description + " - \(String(format: "%4d", Int(duration * 1000)))ms")
                     receivedMessageTextView.needsDisplay = true
                     receivedMessageTextView.scrollLineDown(self)
+                    lastUpdate = Date()
                 }
             }
         }
