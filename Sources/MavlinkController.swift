@@ -9,6 +9,8 @@
 import Cocoa
 import ORSSerial
 import Mavlink
+import PrimaryFlightDisplay
+import SpriteKit
 
 class MavlinkController: NSObject {
 
@@ -32,9 +34,10 @@ class MavlinkController: NSObject {
     @IBOutlet weak var openCloseButton: NSButton!
     @IBOutlet weak var usbRadioButton: NSButton!
     @IBOutlet weak var telemetryRadioButton: NSButton!
-    @IBOutlet var receivedMessageTextView: NSTextView!
-    @IBOutlet weak var clearTextViewButton: NSButton!
-   
+    @IBOutlet weak var primaryFlightDisplay: NSView!
+    
+    static var instance : MavlinkController?
+    
     // MARK: Initializers
     
     override init() {
@@ -52,6 +55,21 @@ class MavlinkController: NSObject {
                                        object: nil)
         
         NSUserNotificationCenter.default.delegate = self
+        MavlinkController.instance = self
+    }
+    
+    func loadView(){
+        var s = DefaultSmallScreenSettings()
+        s.horizon.groundColor = SKColor.brown
+        let pfd = PrimaryFlightDisplayView(frame: primaryFlightDisplay.bounds, settings: s)
+        self.primaryFlightDisplay.addSubview(pfd)
+        
+        NSLayoutConstraint.activate([
+            pfd.leadingAnchor.constraint(equalTo: self.primaryFlightDisplay.leadingAnchor),
+            pfd.trailingAnchor.constraint(equalTo: self.primaryFlightDisplay.trailingAnchor),
+            pfd.bottomAnchor.constraint(equalTo: self.primaryFlightDisplay.bottomAnchor),
+            pfd.topAnchor.constraint(equalTo: self.primaryFlightDisplay.topAnchor)
+        ])
     }
     
     deinit {
@@ -69,7 +87,6 @@ class MavlinkController: NSObject {
             port.close()
         }
         else {
-            clearTextView(sender: self)
             port.open()
             
             if usbRadioButton.state != NSControl.StateValue.off {
@@ -90,10 +107,6 @@ class MavlinkController: NSObject {
         }
         
         port.send(data)
-    }
-    
-    @IBAction func clearTextView(sender: AnyObject) {
-        self.receivedMessageTextView.textStorage?.mutableString.setString("")
     }
     
     @IBAction func radioButtonSelected(sender: AnyObject) {
@@ -167,9 +180,14 @@ extension MavlinkController: ORSSerialPortDelegate {
             let channel = UInt8(MAVLINK_COMM_1.rawValue)
             if mavlink_parse_char(channel, byte, &message, &status) != 0 {
                 if message.msgid == 30{
-                    receivedMessageTextView.textStorage?.mutableString.append(message.description)
-                    receivedMessageTextView.needsDisplay = true
-                    receivedMessageTextView.scrollLineDown(self)
+                    guard let view = primaryFlightDisplay.subviews.first as? PrimaryFlightDisplayView else{
+                        bytes.deallocate()
+                        return
+                    }
+                    var attitude = mavlink_attitude_t()
+                    mavlink_msg_attitude_decode(&message, &attitude)
+                    view.setAttitude(rollRadians: Double(attitude.roll), pitchRadians: Double(attitude.pitch))
+                    view.setHeadingDegree(Double(attitude.yaw.degrees))
                 }
             }
         }
@@ -232,5 +250,11 @@ extension mavlink_message_t: CustomStringConvertible {
         default:
             return "OTHER Message id \(message.msgid) received\n"
         }
+    }
+}
+
+extension Float{
+    var degrees : Float{
+        return self * 180 / .pi
     }
 }

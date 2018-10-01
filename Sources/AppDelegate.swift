@@ -12,4 +12,8 @@ import Cocoa
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     @IBOutlet weak var window: NSWindow!
+    
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        MavlinkController.instance?.loadView()
+    }
 }
