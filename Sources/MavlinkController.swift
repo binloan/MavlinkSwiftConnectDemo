@@ -34,8 +34,6 @@ class MavlinkController: NSObject {
     @IBOutlet weak var telemetryRadioButton: NSButton!
     @IBOutlet var receivedMessageTextView: NSTextView!
     @IBOutlet weak var clearTextViewButton: NSButton!
-    
-    var lastUpdate = Date()
    
     // MARK: Initializers
     
@@ -169,11 +167,9 @@ extension MavlinkController: ORSSerialPortDelegate {
             let channel = UInt8(MAVLINK_COMM_1.rawValue)
             if mavlink_parse_char(channel, byte, &message, &status) != 0 {
                 if message.msgid == 30{
-                    let duration = Date().timeIntervalSince(lastUpdate)
-                    receivedMessageTextView.textStorage?.mutableString.append(message.description + " - \(String(format: "%4d", Int(duration * 1000)))ms")
+                    receivedMessageTextView.textStorage?.mutableString.append(message.description)
                     receivedMessageTextView.needsDisplay = true
                     receivedMessageTextView.scrollLineDown(self)
-                    lastUpdate = Date()
                 }
             }
         }
