@@ -21,7 +21,7 @@ class MavlinkController: NSObject {
             oldValue?.close()
             oldValue?.delegate = nil
             serialPort?.delegate = self
-            serialPort?.baudRate = 57600
+            serialPort?.baudRate = 115200
             serialPort?.numberOfStopBits = 1
             serialPort?.parity = .none
         }
@@ -84,7 +84,7 @@ class MavlinkController: NSObject {
             return
         }
         
-        guard let data = "mavlink start -d /dev/ttyACM0\n".data(using: String.Encoding.utf32LittleEndian) else {
+        guard let data = "mavlink start -d /dev/ttyACM0 -s ATTITUDE_QUATERNION -r 200\n".data(using: String.Encoding.utf32LittleEndian) else {
             print("Cannot create mavlink USB start command")
             return
         }
@@ -166,12 +166,15 @@ extension MavlinkController: ORSSerialPortDelegate {
             var status = mavlink_status_t()
             let channel = UInt8(MAVLINK_COMM_1.rawValue)
             if mavlink_parse_char(channel, byte, &message, &status) != 0 {
-                receivedMessageTextView.textStorage?.mutableString.append(message.description)
-                receivedMessageTextView.needsDisplay = true
+                if message.msgid == 30{
+                    receivedMessageTextView.textStorage?.mutableString.append(message.description)
+                    receivedMessageTextView.needsDisplay = true
+                    receivedMessageTextView.scrollLineDown(self)
+                }
             }
         }
         
-        bytes.deallocate(capacity: data.count)
+        bytes.deallocate()
     }
     
     func serialPort(_ serialPort: ORSSerialPort, didEncounterError error: Error) {
@@ -207,7 +210,7 @@ extension mavlink_message_t: CustomStringConvertible {
         case 30:
             var attitude = mavlink_attitude_t()
             mavlink_msg_attitude_decode(&message, &attitude)
-            return "ATTITUDE roll: \(attitude.roll) pitch: \(attitude.pitch) yaw: \(attitude.yaw)\n"
+            return "ATTITUDE roll: \(String(format: "%.3f", attitude.roll)) pitch: \(String(format: "%.3f", attitude.pitch)) yaw: \(String(format: "%.3f", attitude.yaw))\n"
         case 32:
             return "LOCAL_POSITION_NED\n"
         case 33:
